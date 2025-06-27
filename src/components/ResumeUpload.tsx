@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Upload, FileText, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.entry';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.entry?url';
 
 // Set up PDF.js worker
 GlobalWorkerOptions.workerSrc = pdfWorker;
