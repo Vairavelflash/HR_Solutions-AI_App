@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
 interface SearchFilters {
@@ -82,10 +82,9 @@ export default function CandidateSearch() {
           </div>
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
+            className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
-            <Filter size={20} />
-            <span>Filters</span>
+            {showAdvancedFilters ? 'Hide Filters' : 'Show Filters'}
           </button>
           <button
             onClick={handleSearch}

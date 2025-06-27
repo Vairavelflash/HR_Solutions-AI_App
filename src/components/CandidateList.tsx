@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, Eye, Mail, Phone, Building, X, Edit } from 'lucide-react';
 import { Candidate } from '../types';
 import { useToast } from '../hooks/useToast';
@@ -167,17 +167,27 @@ interface EditCandidateModalProps {
 }
 
 function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidateModalProps) {
-  const [formData, setFormData] = useState<Candidate | null>(null);
+  const [formData, setFormData] = useState<Candidate>({
+    id: '',
+    name: '',
+    email: '',
+    phone: '',
+    totalExperience: 0,
+    currentCompany: '',
+    primarySkills: '',
+    collegeMarks: 0,
+    yearPassedOut: 0
+  });
   const { addToast } = useToast();
 
-  // Initialize form data when modal opens
-  useState(() => {
+  // Initialize form data when modal opens or candidate changes
+  useEffect(() => {
     if (candidate && isOpen) {
       setFormData({ ...candidate });
     }
-  });
+  }, [candidate, isOpen]);
 
-  if (!isOpen || !candidate || !formData) return null;
+  if (!isOpen || !candidate) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,7 +261,7 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
               <input
                 type="number"
                 value={formData.totalExperience}
-                onChange={(e) => setFormData({ ...formData, totalExperience: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, totalExperience: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
@@ -275,7 +285,7 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
                 min="0"
                 max="100"
                 value={formData.collegeMarks}
-                onChange={(e) => setFormData({ ...formData, collegeMarks: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, collegeMarks: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
@@ -288,7 +298,7 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
                 min="1990"
                 max="2030"
                 value={formData.yearPassedOut}
-                onChange={(e) => setFormData({ ...formData, yearPassedOut: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, yearPassedOut: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />

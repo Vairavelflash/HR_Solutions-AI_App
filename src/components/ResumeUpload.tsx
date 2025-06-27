@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Upload, FileText, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.entry';
+
+// Set up PDF.js worker
+GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface FormData {
   name: string;
@@ -32,36 +37,110 @@ export default function ResumeUpload() {
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .filter((item: any) => typeof item.str === 'string' && item.str.trim() !== '')
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n';
+    }
+
+    return fullText;
+  };
+
+  const cleanText = (text: string): string =>
+    text
+      .replace(/\s+/g, ' ')
+      .replace(/Page \d+/gi, '')
+      .trim()
+      .substring(0, 5000);
+
+  const extractDataFromText = (text: string): FormData => {
+    // Simple regex-based extraction (in production, you'd use AI/ML)
+    const emailMatch = text.match(/[\w.-]+@[\w.-]+\.\w+/);
+    const phoneMatch = text.match(/[\+]?[\d\s\-\(\)]{10,}/);
+    const nameMatch = text.match(/^([A-Z][a-z]+ [A-Z][a-z]+)/m);
+    
+    // Extract experience (looking for patterns like "5 years", "3+ years", etc.)
+    const expMatch = text.match(/(\d+)[\+]?\s*years?\s*(of\s*)?experience/i);
+    
+    // Extract skills (looking for common tech skills)
+    const skillsPattern = /(React|Angular|Vue|Node\.js|Python|Java|JavaScript|TypeScript|PHP|Ruby|C\+\+|C#|AWS|Azure|Docker|Kubernetes|MongoDB|MySQL|PostgreSQL|Git|HTML|CSS)/gi;
+    const skillsMatches = text.match(skillsPattern);
+    const skills = skillsMatches ? [...new Set(skillsMatches)].join(', ') : '';
+    
+    // Extract marks/GPA (looking for patterns like "85%", "8.5 GPA", etc.)
+    const marksMatch = text.match(/(\d+(?:\.\d+)?)\s*(%|GPA|CGPA)/i);
+    
+    // Extract graduation year
+    const yearMatch = text.match(/(19|20)\d{2}/g);
+    const graduationYear = yearMatch ? Math.max(...yearMatch.map(y => parseInt(y))) : '';
+
+    return {
+      name: nameMatch ? nameMatch[1] : '',
+      email: emailMatch ? emailMatch[0] : '',
+      phone: phoneMatch ? phoneMatch[0].replace(/\s+/g, '') : '',
+      totalExperience: expMatch ? expMatch[1] : '',
+      currentCompany: '', // Would need more sophisticated extraction
+      primarySkills: skills,
+      collegeMarks: marksMatch ? marksMatch[1] : '',
+      yearPassedOut: graduationYear.toString()
+    };
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile && (selectedFile.type === 'application/pdf' || selectedFile.type === 'text/plain')) {
-      setFile(selectedFile);
-      // Simulate PDF text extraction
-      setRawText(`Sample extracted text from ${selectedFile.name}:\n\nJohn Doe\nSoftware Engineer\nExperience: 5 years\nSkills: React, Node.js, Python\nEducation: Computer Science, XYZ University\nPhone: +1234567890\nEmail: john.doe@email.com`);
-      
-      // Auto-fill form with extracted data
-      setFormData({
-        name: 'John Doe',
-        email: 'john.doe@email.com',
-        phone: '+1234567890',
-        totalExperience: '5',
-        currentCompany: 'Tech Corp',
-        primarySkills: 'React, Node.js, Python',
-        collegeMarks: '85',
-        yearPassedOut: '2018'
+    if (!selectedFile) return;
+
+    if (selectedFile.type !== 'application/pdf' && selectedFile.type !== 'text/plain') {
+      addToast({
+        type: 'error',
+        title: 'Invalid file type',
+        message: 'Please upload a PDF or TXT file only.'
       });
+      return;
+    }
+
+    setFile(selectedFile);
+    setLoading(true);
+
+    try {
+      let extractedText = '';
+      
+      if (selectedFile.type === 'application/pdf') {
+        extractedText = await extractTextFromPDF(selectedFile);
+      } else {
+        extractedText = await selectedFile.text();
+      }
+
+      const cleanedText = cleanText(extractedText);
+      setRawText(cleanedText);
+
+      // Extract data from text
+      const extractedData = extractDataFromText(cleanedText);
+      setFormData(extractedData);
 
       addToast({
         type: 'success',
         title: 'Resume uploaded successfully',
         message: 'Data has been extracted and auto-filled in the form.'
       });
-    } else {
+    } catch (error) {
+      console.error('Error processing file:', error);
       addToast({
         type: 'error',
-        title: 'Invalid file type',
-        message: 'Please upload a PDF or TXT file only.'
+        title: 'Processing failed',
+        message: 'An error occurred while processing the file.'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,18 +184,25 @@ export default function ResumeUpload() {
   };
 
   const handleAiQuery = async () => {
-    if (!aiQuery.trim()) return;
+    if (!aiQuery.trim() || !rawText) {
+      addToast({
+        type: 'warning',
+        title: 'Missing information',
+        message: 'Please upload a resume and enter a question.'
+      });
+      return;
+    }
     
     setLoading(true);
     try {
-      // Simulate AI response
+      // Simulate AI response based on the extracted text
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const responses = [
-        "Based on the resume analysis, this candidate has strong technical skills in modern web development technologies.",
-        "The candidate shows 5 years of progressive experience with a focus on full-stack development.",
-        "Skills alignment shows 85% match with senior developer requirements.",
-        "Educational background and project experience indicate strong problem-solving abilities."
+        `Based on the resume analysis, this candidate shows strong technical skills with experience in ${formData.primarySkills || 'various technologies'}.`,
+        `The candidate has ${formData.totalExperience || 'several'} years of experience and graduated in ${formData.yearPassedOut || 'recent years'}.`,
+        `Skills alignment shows good match with modern development requirements. College performance: ${formData.collegeMarks || 'Not specified'}%.`,
+        `Educational background and project experience indicate strong problem-solving abilities and technical competency.`
       ];
       
       setAiResponse(responses[Math.floor(Math.random() * responses.length)]);
@@ -166,16 +252,9 @@ export default function ResumeUpload() {
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-3">
             <FileText className="h-6 w-6 text-blue-600" />
             <span className="text-sm text-blue-700 dark:text-blue-400">{file.name}</span>
+            {loading && <span className="text-sm text-blue-600">Processing...</span>}
           </div>
         )}
-        
-        <button
-          onClick={() => console.log('Processing file...')}
-          disabled={!file}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Extract Data
-        </button>
       </div>
 
       {/* Manual Data Entry Form */}
@@ -310,11 +389,11 @@ export default function ResumeUpload() {
             />
             <button
               onClick={handleAiQuery}
-              disabled={loading || !aiQuery.trim()}
+              disabled={loading || !aiQuery.trim() || !rawText}
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
             >
               <Send size={16} />
-              <span>Ask</span>
+              <span>{loading ? 'Thinking...' : 'Ask'}</span>
             </button>
           </div>
           
