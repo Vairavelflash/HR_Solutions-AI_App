@@ -7,6 +7,10 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
 // Set up PDF.js worker
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
+// Mistral API configuration
+const MISTRAL_API_KEY = "KQpq9x34XSgnQf2Be8ISxmsh12sxifRD";
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+
 interface FormData {
   name: string;
   email: string;
@@ -62,37 +66,68 @@ export default function ResumeUpload() {
       .trim()
       .substring(0, 5000);
 
-  const extractDataFromText = (text: string): FormData => {
-    // Simple regex-based extraction (in production, you'd use AI/ML)
-    const emailMatch = text.match(/[\w.-]+@[\w.-]+\.\w+/);
-    const phoneMatch = text.match(/[\+]?[\d\s\-\(\)]{10,}/);
-    const nameMatch = text.match(/^([A-Z][a-z]+ [A-Z][a-z]+)/m);
+  const extractDataWithMistral = async (text: string): Promise<FormData> => {
+    const extractionPrompt = `
+    Extract the following fields from the document and return only valid JSON:
     
-    // Extract experience (looking for patterns like "5 years", "3+ years", etc.)
-    const expMatch = text.match(/(\d+)[\+]?\s*years?\s*(of\s*)?experience/i);
+    {
+      "name": "",
+      "email": "",
+      "phone": "",
+      "totalExperience": "",
+      "currentCompany": "",
+      "primarySkills": "",
+      "collegeMarks": "",
+      "yearPassedOut": ""
+    }
     
-    // Extract skills (looking for common tech skills)
-    const skillsPattern = /(React|Angular|Vue|Node\.js|Python|Java|JavaScript|TypeScript|PHP|Ruby|C\+\+|C#|AWS|Azure|Docker|Kubernetes|MongoDB|MySQL|PostgreSQL|Git|HTML|CSS)/gi;
-    const skillsMatches = text.match(skillsPattern);
-    const skills = skillsMatches ? [...new Set(skillsMatches)].join(', ') : '';
+    Use only the information from this document:
+    ${text}
     
-    // Extract marks/GPA (looking for patterns like "85%", "8.5 GPA", etc.)
-    const marksMatch = text.match(/(\d+(?:\.\d+)?)\s*(%|GPA|CGPA)/i);
-    
-    // Extract graduation year
-    const yearMatch = text.match(/(19|20)\d{2}/g);
-    const graduationYear = yearMatch ? Math.max(...yearMatch.map(y => parseInt(y))) : '';
+    Make sure:
+    - 'totalExperience' should be just the number of years (e.g., "5" not "5 years")
+    - 'collegeMarks' can be in formats like "85%", "8.5 CGPA", "700/800", "680 marks", or "Points: 123"
+    - Return them as-is in the original format from the document
+    - 'primarySkills' should be a comma-separated list of technical skills
+    If any value is missing, return an empty string. No explanations, just valid JSON.
+    `;
 
-    return {
-      name: nameMatch ? nameMatch[1] : '',
-      email: emailMatch ? emailMatch[0] : '',
-      phone: phoneMatch ? phoneMatch[0].replace(/\s+/g, '') : '',
-      totalExperience: expMatch ? expMatch[1] : '',
-      currentCompany: '', // Would need more sophisticated extraction
-      primarySkills: skills,
-      collegeMarks: marksMatch ? marksMatch[1] : '',
-      yearPassedOut: graduationYear.toString()
-    };
+    try {
+      const response = await fetch(MISTRAL_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${MISTRAL_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "mistral-small",
+          messages: [
+            {
+              role: "system",
+              content: "You extract structured data from documents and return only valid JSON."
+            },
+            {
+              role: "user",
+              content: extractionPrompt
+            }
+          ],
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Mistral API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "{}";
+      const cleanJson = content.replace(/```json|```/g, "").trim();
+
+      return JSON.parse(cleanJson);
+    } catch (error) {
+      console.error('Mistral extraction error:', error);
+      throw error;
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,6 +145,8 @@ export default function ResumeUpload() {
 
     setFile(selectedFile);
     setLoading(true);
+    setAiQuery('');
+    setAiResponse('');
 
     try {
       let extractedText = '';
@@ -123,21 +160,21 @@ export default function ResumeUpload() {
       const cleanedText = cleanText(extractedText);
       setRawText(cleanedText);
 
-      // Extract data from text
-      const extractedData = extractDataFromText(cleanedText);
+      // Extract data using Mistral AI
+      const extractedData = await extractDataWithMistral(cleanedText);
       setFormData(extractedData);
 
       addToast({
         type: 'success',
-        title: 'Resume uploaded successfully',
-        message: 'Data has been extracted and auto-filled in the form.'
+        title: 'Resume processed successfully',
+        message: 'AI has extracted and auto-filled the candidate information.'
       });
     } catch (error) {
       console.error('Error processing file:', error);
       addToast({
         type: 'error',
         title: 'Processing failed',
-        message: 'An error occurred while processing the file.'
+        message: 'An error occurred while processing the file with AI.'
       });
     } finally {
       setLoading(false);
@@ -172,6 +209,7 @@ export default function ResumeUpload() {
       });
       setFile(null);
       setRawText('');
+      setAiResponse('');
     } catch (error) {
       addToast({
         type: 'error',
@@ -194,29 +232,52 @@ export default function ResumeUpload() {
     }
     
     setLoading(true);
+    setAiResponse('');
+
+    const prompt = `Document:\n${rawText}\n\nQuestion: ${aiQuery}\n\nAnswer clearly and concisely:`;
+
     try {
-      // Simulate AI response based on the extracted text
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const responses = [
-        `Based on the resume analysis, this candidate shows strong technical skills with experience in ${formData.primarySkills || 'various technologies'}.`,
-        `The candidate has ${formData.totalExperience || 'several'} years of experience and graduated in ${formData.yearPassedOut || 'recent years'}.`,
-        `Skills alignment shows good match with modern development requirements. College performance: ${formData.collegeMarks || 'Not specified'}%.`,
-        `Educational background and project experience indicate strong problem-solving abilities and technical competency.`
-      ];
-      
-      setAiResponse(responses[Math.floor(Math.random() * responses.length)]);
+      const response = await fetch(MISTRAL_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${MISTRAL_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "mistral-small",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful HR assistant who answers questions about candidates based on their resume content. Provide clear, professional insights."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.4
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Mistral API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || "No response received.";
+      setAiResponse(reply);
       
       addToast({
-        type: 'info',
+        type: 'success',
         title: 'AI analysis complete',
         message: 'The AI has analyzed the resume and provided insights.'
       });
     } catch (error) {
+      console.error('Mistral query error:', error);
       addToast({
         type: 'error',
         title: 'AI query failed',
-        message: 'An error occurred while processing your AI query.'
+        message: 'An error occurred while processing your AI query. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -252,7 +313,7 @@ export default function ResumeUpload() {
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-3">
             <FileText className="h-6 w-6 text-blue-600" />
             <span className="text-sm text-blue-700 dark:text-blue-400">{file.name}</span>
-            {loading && <span className="text-sm text-blue-600">Processing...</span>}
+            {loading && <span className="text-sm text-blue-600">Processing with AI...</span>}
           </div>
         )}
       </div>
@@ -335,15 +396,13 @@ export default function ResumeUpload() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">College Marks (%)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">College Marks</label>
             <input
-              type="number"
-              min="0"
-              max="100"
+              type="text"
               value={formData.collegeMarks}
               onChange={(e) => setFormData({ ...formData, collegeMarks: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Percentage"
+              placeholder="e.g., 85%, 8.5 CGPA"
               required
             />
           </div>
@@ -377,6 +436,9 @@ export default function ResumeUpload() {
       {/* AI Chat Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Assistant</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Ask questions about the uploaded resume. The AI will analyze the content and provide insights.
+        </p>
         
         <div className="space-y-4">
           <div className="flex space-x-4">
@@ -386,6 +448,7 @@ export default function ResumeUpload() {
               onChange={(e) => setAiQuery(e.target.value)}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder="Ask AI about the candidate or resume..."
+              onKeyPress={(e) => e.key === 'Enter' && !loading && handleAiQuery()}
             />
             <button
               onClick={handleAiQuery}
@@ -393,13 +456,14 @@ export default function ResumeUpload() {
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
             >
               <Send size={16} />
-              <span>{loading ? 'Thinking...' : 'Ask'}</span>
+              <span>{loading ? 'Thinking...' : 'Ask Mistral'}</span>
             </button>
           </div>
           
           {aiResponse && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-              <p className="text-purple-700 dark:text-purple-300">{aiResponse}</p>
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+              <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-2">AI Response:</h4>
+              <p className="text-purple-700 dark:text-purple-300 whitespace-pre-wrap">{aiResponse}</p>
             </div>
           )}
         </div>
@@ -421,7 +485,7 @@ export default function ResumeUpload() {
               value={rawText}
               readOnly
               className="w-full h-64 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-              placeholder="Extracted text will appear here..."
+              placeholder="Extracted text will appear here after uploading a resume..."
             />
           </div>
         )}
