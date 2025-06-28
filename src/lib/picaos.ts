@@ -1,4 +1,4 @@
-import PicaAI from '@picahq/ai';
+import { PicaAI } from '@picahq/ai';
 
 const picaApiKey = import.meta.env.VITE_PICAOS_API_KEY;
 const picaConnectionKey = import.meta.env.VITE_PICAOS_CONNECTION_KEY;
