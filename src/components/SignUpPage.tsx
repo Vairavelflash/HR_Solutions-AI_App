@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import ThemeImage from './ThemeImage';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -131,6 +132,8 @@ export default function SignUpPage() {
           </div>
         </div>
       </div>
+             <ThemeImage />
+      
     </div>
   );
 }

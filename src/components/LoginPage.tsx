@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import ThemeImage from './ThemeImage';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -115,6 +116,8 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+             <ThemeImage />
+      
     </div>
   );
 }

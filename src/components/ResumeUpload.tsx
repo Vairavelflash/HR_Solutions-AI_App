@@ -473,7 +473,7 @@ export default function ResumeUpload() {
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
             >
               <Send size={16} />
-              <span>{loading ? 'Thinking...' : 'Ask Mistral'}</span>
+              <span>{loading ? 'Thinking...' : 'Ask AI'}</span>
             </button>
           </div>
           

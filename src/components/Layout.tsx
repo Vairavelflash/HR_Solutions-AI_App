@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import ThemeImage from './ThemeImage';
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,6 +15,8 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <Footer />
+       <ThemeImage />
+
     </div>
   );
 }
