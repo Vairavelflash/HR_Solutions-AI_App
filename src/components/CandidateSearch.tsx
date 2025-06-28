@@ -2,14 +2,6 @@ import { useState } from 'react';
 import { Search, X, Loader } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
-interface SearchFilters {
-  skills: string;
-  experience: string;
-  company: string;
-  education: string;
-  location: string;
-}
-
 interface SearchResult {
   id: string;
   name: string;
@@ -25,14 +17,6 @@ interface SearchResult {
 
 export default function CandidateSearch() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<SearchFilters>({
-    skills: '',
-    experience: '',
-    company: '',
-    education: '',
-    location: ''
-  });
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -63,14 +47,7 @@ export default function CandidateSearch() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          query: searchQuery,
-          filters: {
-            skills: filters.skills || undefined,
-            experience: filters.experience || undefined,
-            company: filters.company || undefined,
-            education: filters.education || undefined,
-            location: filters.location || undefined,
-          }
+          query: searchQuery
         })
       });
 
@@ -103,21 +80,14 @@ export default function CandidateSearch() {
     }
   };
 
-  const clearFilters = () => {
+  const clearSearch = () => {
     setSearchQuery('');
-    setFilters({
-      skills: '',
-      experience: '',
-      company: '',
-      education: '',
-      location: ''
-    });
     setSearchResults([]);
     setHasSearched(false);
     addToast({
       type: 'info',
-      title: 'Filters cleared',
-      message: 'All search filters have been reset.'
+      title: 'Search cleared',
+      message: 'Search results have been cleared.'
     });
   };
 
@@ -142,15 +112,9 @@ export default function CandidateSearch() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={handleKeyPress}
               className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Search by name, skills, company, or keywords..."
+              placeholder="Search by name, skills, company, experience, marks, graduation year, or any keyword..."
             />
           </div>
-          <button
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            {showAdvancedFilters ? 'Hide Filters' : 'Show Filters'}
-          </button>
           <button
             onClick={handleSearch}
             disabled={loading}
@@ -159,83 +123,41 @@ export default function CandidateSearch() {
             {loading ? <Loader className="animate-spin" size={20} /> : <Search size={20} />}
             <span>{loading ? 'Searching...' : 'Search'}</span>
           </button>
+          {(searchQuery || hasSearched) && (
+            <button
+              onClick={clearSearch}
+              className="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors flex items-center space-x-2"
+            >
+              <X size={16} />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
 
-        {/* Advanced Filters */}
-        {showAdvancedFilters && (
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Skills</label>
-                <input
-                  type="text"
-                  value={filters.skills}
-                  onChange={(e) => setFilters({ ...filters, skills: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="e.g., React, Python, AWS"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Experience Level</label>
-                <select
-                  value={filters.experience}
-                  onChange={(e) => setFilters({ ...filters, experience: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">Any Experience</option>
-                  <option value="0-2">0-2 years</option>
-                  <option value="3-5">3-5 years</option>
-                  <option value="6-10">6-10 years</option>
-                  <option value="10+">10+ years</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company</label>
-                <input
-                  type="text"
-                  value={filters.company}
-                  onChange={(e) => setFilters({ ...filters, company: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Current or previous company"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Education</label>
-                <input
-                  type="text"
-                  value={filters.education}
-                  onChange={(e) => setFilters({ ...filters, education: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Degree, university, or field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Location</label>
-                <input
-                  type="text"
-                  value={filters.location}
-                  onChange={(e) => setFilters({ ...filters, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="City, state, or country"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end">
+        {/* Search Examples */}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search Examples:</h4>
+          <div className="flex flex-wrap gap-2">
+            {[
+              'React developer',
+              'Google',
+              '5 years experience',
+              'Python',
+              '2020 graduate',
+              'john@email.com',
+              '85% marks',
+              'Software Engineer'
+            ].map((example, index) => (
               <button
-                onClick={clearFilters}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                key={index}
+                onClick={() => setSearchQuery(example)}
+                className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900/70 transition-colors"
               >
-                <X size={16} />
-                <span>Clear Filters</span>
+                {example}
               </button>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Search Results */}
@@ -250,6 +172,9 @@ export default function CandidateSearch() {
               <div className="text-gray-500 dark:text-gray-400">
                 {loading ? 'Searching...' : 'No candidates found matching your search criteria.'}
               </div>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                Try different keywords or check the search examples above.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -298,14 +223,14 @@ export default function CandidateSearch() {
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium text-blue-900 dark:text-blue-100">Search Tips</h4>
+            <h4 className="font-medium text-blue-900 dark:text-blue-100">Smart Search</h4>
             <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-              Use specific keywords, skills, or company names for better results. Advanced filters help narrow down candidates.
+              Type any text related to candidate data - names, skills, companies, experience levels, graduation years, marks, or any keywords. The search will find matching candidates across all fields.
             </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-blue-600 dark:text-blue-400">PicaOS Powered</p>
-            <p className="text-xs text-blue-500 dark:text-blue-500">Smart database search</p>
+            <p className="text-xs text-blue-500 dark:text-blue-500">Intelligent database search</p>
           </div>
         </div>
       </div>

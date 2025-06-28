@@ -6,13 +6,6 @@ const corsHeaders = {
 
 interface SearchRequest {
   query: string;
-  filters?: {
-    skills?: string;
-    experience?: string;
-    company?: string;
-    education?: string;
-    location?: string;
-  };
 }
 
 // PicaOS API configuration
@@ -24,40 +17,23 @@ if (!PICA_SECRET_KEY || !PICA_SUPABASE_CONNECTION_KEY || !SUPABASE_PROJECT_REF) 
   throw new Error('Missing required environment variables: PICA_SECRET_KEY, PICA_SUPABASE_CONNECTION_KEY, or SUPABASE_PROJECT_REF');
 }
 
-async function searchCandidatesWithPicaOS(searchQuery: string, filters?: any) {
+async function searchCandidatesWithPicaOS(searchQuery: string) {
   try {
-    // Build SQL query based on search term and filters
-    let sqlQuery = `SELECT * FROM hr_solns_app WHERE 1=1`;
-    
-    if (searchQuery && searchQuery.trim()) {
-      sqlQuery += ` AND (
+    // Build comprehensive SQL query that searches across all relevant fields
+    let sqlQuery = `
+      SELECT * FROM hr_solns_app 
+      WHERE 
         name ILIKE '%${searchQuery}%' OR 
         email ILIKE '%${searchQuery}%' OR 
+        phone ILIKE '%${searchQuery}%' OR
         primary_skills ILIKE '%${searchQuery}%' OR 
-        current_company ILIKE '%${searchQuery}%'
-      )`;
-    }
-
-    // Add filters if provided
-    if (filters) {
-      if (filters.skills) {
-        sqlQuery += ` AND primary_skills ILIKE '%${filters.skills}%'`;
-      }
-      if (filters.experience) {
-        const expRange = filters.experience.split('-');
-        if (expRange.length === 2) {
-          sqlQuery += ` AND total_experience >= ${expRange[0]} AND total_experience <= ${expRange[1]}`;
-        } else if (filters.experience.includes('+')) {
-          const minExp = filters.experience.replace('+', '');
-          sqlQuery += ` AND total_experience >= ${minExp}`;
-        }
-      }
-      if (filters.company) {
-        sqlQuery += ` AND current_company ILIKE '%${filters.company}%'`;
-      }
-    }
-
-    sqlQuery += ` ORDER BY created_at DESC LIMIT 50;`;
+        current_company ILIKE '%${searchQuery}%' OR
+        college_marks ILIKE '%${searchQuery}%' OR
+        CAST(total_experience AS TEXT) ILIKE '%${searchQuery}%' OR
+        CAST(year_passed_out AS TEXT) ILIKE '%${searchQuery}%'
+      ORDER BY created_at DESC 
+      LIMIT 50;
+    `;
 
     // Make request to PicaOS API
     const response = await fetch(
@@ -111,7 +87,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { query, filters }: SearchRequest = await req.json();
+    const { query }: SearchRequest = await req.json();
 
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -130,14 +106,13 @@ Deno.serve(async (req: Request) => {
     }
 
     // Search candidates using PicaOS
-    const searchResults = await searchCandidatesWithPicaOS(query, filters);
+    const searchResults = await searchCandidatesWithPicaOS(query);
 
     return new Response(
       JSON.stringify({
         success: true,
         data: searchResults,
         query: query,
-        filters: filters || {},
         timestamp: new Date().toISOString()
       }),
       {
