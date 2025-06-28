@@ -26,7 +26,7 @@ export default function Footer() {
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Connect</h4>
             <div className="flex items-center space-x-4">
               <a
-                href="https://github.com"
+                href="https://github.com/Vairavelflash/HR_Solutions-AI_App"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
