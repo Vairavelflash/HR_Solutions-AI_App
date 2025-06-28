@@ -1,69 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, Eye, Mail, Phone, Building, X, Edit } from 'lucide-react';
-import { Candidate } from '../types';
 import { useToast } from '../hooks/useToast';
-
-// Mock data
-const mockCandidates: Candidate[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john.doe@email.com',
-    phone: '+1234567890',
-    totalExperience: 5,
-    currentCompany: 'Tech Corp',
-    primarySkills: 'React, Node.js, Python',
-    collegeMarks: 85,
-    yearPassedOut: 2018
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane.smith@email.com',
-    phone: '+1234567891',
-    totalExperience: 3,
-    currentCompany: 'StartupXYZ',
-    primarySkills: 'Vue.js, PHP, MySQL',
-    collegeMarks: 92,
-    yearPassedOut: 2020
-  },
-  {
-    id: '3',
-    name: 'Mike Johnson',
-    email: 'mike.johnson@email.com',
-    phone: '+1234567892',
-    totalExperience: 7,
-    currentCompany: 'Enterprise Inc',
-    primarySkills: 'Java, Spring, AWS',
-    collegeMarks: 78,
-    yearPassedOut: 2016
-  },
-  {
-    id: '4',
-    name: 'Sarah Wilson',
-    email: 'sarah.wilson@email.com',
-    phone: '+1234567893',
-    totalExperience: 4,
-    currentCompany: 'Design Studio',
-    primarySkills: 'React, TypeScript, GraphQL',
-    collegeMarks: 88,
-    yearPassedOut: 2019
-  },
-  {
-    id: '5',
-    name: 'David Brown',
-    email: 'david.brown@email.com',
-    phone: '+1234567894',
-    totalExperience: 6,
-    currentCompany: 'Cloud Systems',
-    primarySkills: 'Python, Django, Docker',
-    collegeMarks: 91,
-    yearPassedOut: 2017
-  }
-];
+import { supabase, CandidateData } from '../lib/supabase';
 
 interface CandidateModalProps {
-  candidate: Candidate | null;
+  candidate: CandidateData | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -109,32 +50,32 @@ function CandidateModal({ candidate, isOpen, onClose }: CandidateModalProps) {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Experience</label>
-              <p className="text-gray-900 dark:text-white">{candidate.totalExperience} years</p>
+              <p className="text-gray-900 dark:text-white">{candidate.total_experience} years</p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Company</label>
               <div className="flex items-center space-x-2">
                 <Building size={16} className="text-gray-500" />
-                <p className="text-gray-900 dark:text-white">{candidate.currentCompany}</p>
+                <p className="text-gray-900 dark:text-white">{candidate.current_company}</p>
               </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">College Marks</label>
-              <p className="text-gray-900 dark:text-white">{candidate.collegeMarks}%</p>
+              <p className="text-gray-900 dark:text-white">{candidate.college_marks}</p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year Passed Out</label>
-              <p className="text-gray-900 dark:text-white">{candidate.yearPassedOut}</p>
+              <p className="text-gray-900 dark:text-white">{candidate.year_passed_out}</p>
             </div>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Skills</label>
             <div className="flex flex-wrap gap-2">
-              {candidate.primarySkills.split(', ').map((skill, index) => (
+              {candidate.primary_skills.split(', ').map((skill, index) => (
                 <span
                   key={index}
                   className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium"
@@ -160,23 +101,22 @@ function CandidateModal({ candidate, isOpen, onClose }: CandidateModalProps) {
 }
 
 interface EditCandidateModalProps {
-  candidate: Candidate | null;
+  candidate: CandidateData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (candidate: Candidate) => void;
+  onSave: (candidate: CandidateData) => void;
 }
 
 function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidateModalProps) {
-  const [formData, setFormData] = useState<Candidate>({
-    id: '',
+  const [formData, setFormData] = useState<CandidateData>({
     name: '',
     email: '',
     phone: '',
-    totalExperience: 0,
-    currentCompany: '',
-    primarySkills: '',
-    collegeMarks: 0,
-    yearPassedOut: 0
+    total_experience: 0,
+    current_company: '',
+    primary_skills: '',
+    college_marks: '',
+    year_passed_out: 0
   });
   const { addToast } = useToast();
 
@@ -189,9 +129,25 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
 
   if (!isOpen || !candidate) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const { error } = await supabase
+        .from('hr_solns_app')
+        .update({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          total_experience: formData.total_experience,
+          current_company: formData.current_company,
+          primary_skills: formData.primary_skills,
+          college_marks: formData.college_marks,
+          year_passed_out: formData.year_passed_out,
+        })
+        .eq('id', candidate.id);
+
+      if (error) throw error;
+
       onSave(formData);
       addToast({
         type: 'success',
@@ -200,6 +156,7 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
       });
       onClose();
     } catch (error) {
+      console.error('Error updating candidate:', error);
       addToast({
         type: 'error',
         title: 'Update failed',
@@ -260,8 +217,8 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Experience (Years)</label>
               <input
                 type="number"
-                value={formData.totalExperience}
-                onChange={(e) => setFormData({ ...formData, totalExperience: parseInt(e.target.value) || 0 })}
+                value={formData.total_experience}
+                onChange={(e) => setFormData({ ...formData, total_experience: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
@@ -271,21 +228,19 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Company</label>
               <input
                 type="text"
-                value={formData.currentCompany}
-                onChange={(e) => setFormData({ ...formData, currentCompany: e.target.value })}
+                value={formData.current_company}
+                onChange={(e) => setFormData({ ...formData, current_company: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">College Marks (%)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">College Marks</label>
               <input
-                type="number"
-                min="0"
-                max="100"
-                value={formData.collegeMarks}
-                onChange={(e) => setFormData({ ...formData, collegeMarks: parseInt(e.target.value) || 0 })}
+                type="text"
+                value={formData.college_marks}
+                onChange={(e) => setFormData({ ...formData, college_marks: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
@@ -297,8 +252,8 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
                 type="number"
                 min="1990"
                 max="2030"
-                value={formData.yearPassedOut}
-                onChange={(e) => setFormData({ ...formData, yearPassedOut: parseInt(e.target.value) || 0 })}
+                value={formData.year_passed_out}
+                onChange={(e) => setFormData({ ...formData, year_passed_out: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
@@ -309,8 +264,8 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Skills</label>
             <input
               type="text"
-              value={formData.primarySkills}
-              onChange={(e) => setFormData({ ...formData, primarySkills: e.target.value })}
+              value={formData.primary_skills}
+              onChange={(e) => setFormData({ ...formData, primary_skills: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder="e.g., React, Python, AWS"
               required
@@ -339,20 +294,49 @@ function EditCandidateModal({ candidate, isOpen, onClose, onSave }: EditCandidat
 }
 
 export default function CandidateList() {
-  const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
+  const [candidates, setCandidates] = useState<CandidateData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<CandidateData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
   const candidatesPerPage = 3;
+
+  // Fetch candidates from Supabase
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
+
+  const fetchCandidates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hr_solns_app')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setCandidates(data || []);
+    } catch (error) {
+      console.error('Error fetching candidates:', error);
+      addToast({
+        type: 'error',
+        title: 'Failed to load candidates',
+        message: 'An error occurred while loading candidate data.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCandidates = candidates.filter(candidate =>
     candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     candidate.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.primarySkills.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.currentCompany.toLowerCase().includes(searchTerm.toLowerCase())
+    candidate.primary_skills.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    candidate.current_company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredCandidates.length / candidatesPerPage);
@@ -368,23 +352,31 @@ export default function CandidateList() {
     setCurrentPage(1);
   };
 
-  const handleViewCandidate = (candidate: Candidate) => {
+  const handleViewCandidate = (candidate: CandidateData) => {
     setSelectedCandidate(candidate);
     setShowModal(true);
   };
 
-  const handleEditCandidate = (candidate: Candidate) => {
+  const handleEditCandidate = (candidate: CandidateData) => {
     setEditingCandidate(candidate);
     setShowEditModal(true);
   };
 
-  const handleSaveCandidate = (updatedCandidate: Candidate) => {
+  const handleSaveCandidate = (updatedCandidate: CandidateData) => {
     setCandidates(prev => 
       prev.map(candidate => 
         candidate.id === updatedCandidate.id ? updatedCandidate : candidate
       )
     );
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading candidates...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -454,19 +446,19 @@ export default function CandidateList() {
                     {candidate.phone}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                    {candidate.totalExperience} years
+                    {candidate.total_experience} years
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                    {candidate.currentCompany}
+                    {candidate.current_company}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                    {candidate.primarySkills}
+                    {candidate.primary_skills}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                    {candidate.collegeMarks}%
+                    {candidate.college_marks}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                    {candidate.yearPassedOut}
+                    {candidate.year_passed_out}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">

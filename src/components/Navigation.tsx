@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Moon, Sun, LogOut } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Briefcase, Users } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -94,15 +94,26 @@ export default function Navigation() {
   const { user, logout } = useAuth();
   const { addToast } = useToast();
 
-  const handleLogout = () => {
-    logout();
-    setShowLogout(false);
-    addToast({
-      type: 'success',
-      title: 'Logged out successfully',
-      message: 'You have been logged out of your account.'
-    });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogout(false);
+      addToast({
+        type: 'success',
+        title: 'Logged out successfully',
+        message: 'You have been logged out of your account.'
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Logout failed',
+        message: 'An error occurred while logging out.'
+      });
+    }
   };
+
+  // Theme-based logo
+  const LogoIcon = theme === 'light' ? Briefcase : Users;
 
   return (
     <>
@@ -114,7 +125,7 @@ export default function Navigation() {
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
             >
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <User size={20} className="text-white" />
+                <LogoIcon size={20} className="text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">Hire Fast</h1>

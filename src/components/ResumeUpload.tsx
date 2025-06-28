@@ -3,13 +3,14 @@ import { Upload, FileText, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
+import { supabase } from '../lib/supabase';
 
 // Set up PDF.js worker
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
-// Mistral API configuration
-const MISTRAL_API_KEY = "KQpq9x34XSgnQf2Be8ISxmsh12sxifRD";
-const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+// Mistral API configuration from environment variables
+const MISTRAL_API_KEY = import.meta.env.VITE_MISTRAL_API_KEY;
+const MISTRAL_API_URL = import.meta.env.VITE_MISTRAL_API_URL;
 
 interface FormData {
   name: string;
@@ -186,10 +187,25 @@ export default function ResumeUpload() {
     setLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Candidate data submitted:', formData);
+      // Save to Supabase hr_solns_app table
+      const { data, error } = await supabase
+        .from('hr_solns_app')
+        .insert([
+          {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            total_experience: parseInt(formData.totalExperience) || 0,
+            current_company: formData.currentCompany,
+            primary_skills: formData.primarySkills,
+            college_marks: formData.collegeMarks,
+            year_passed_out: parseInt(formData.yearPassedOut) || 0,
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
       addToast({
         type: 'success',
         title: 'Candidate saved successfully',
@@ -211,10 +227,11 @@ export default function ResumeUpload() {
       setRawText('');
       setAiResponse('');
     } catch (error) {
+      console.error('Error saving candidate:', error);
       addToast({
         type: 'error',
         title: 'Save failed',
-        message: 'An unexpected error occurred while saving the candidate.'
+        message: 'An error occurred while saving the candidate to the database.'
       });
     } finally {
       setLoading(false);
