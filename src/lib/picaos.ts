@@ -1,4 +1,5 @@
-import { Pica } from '@picahq/ai';
+import { PicaAI } from '@picahq/ai';
+import { CandidateData } from './supabase';
 
 const picaApiKey = import.meta.env.VITE_PICAOS_API_KEY;
 const picaConnectionKey = import.meta.env.VITE_PICAOS_CONNECTION_KEY;
@@ -7,13 +8,13 @@ if (!picaApiKey || !picaConnectionKey) {
   throw new Error('Missing PicaOS AI environment variables');
 }
 
-export const Pica = new Pica({
+const picaAI = new PicaAI({
   apiKey: picaApiKey,
 });
 
-export const searchCandidatesWithAI = async (query: string) => {
+export const searchCandidatesWithAI = async (query: string): Promise<PicaSearchResult> => {
   try {
-    const response = await Pica.query({
+    const response = await picaAI.query({
       connectionKey: picaConnectionKey,
       query: query,
       table: 'hr_solns_app',
@@ -27,7 +28,7 @@ export const searchCandidatesWithAI = async (query: string) => {
 };
 
 export interface PicaSearchResult {
-  data: any[];
+  data: CandidateData[];
   explanation?: string;
   confidence?: number;
 }
