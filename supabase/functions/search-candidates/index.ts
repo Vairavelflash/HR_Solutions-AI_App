@@ -13,27 +13,43 @@ const PICA_SECRET_KEY = Deno.env.get('PICA_SECRET_KEY');
 const PICA_SUPABASE_CONNECTION_KEY = Deno.env.get('PICA_SUPABASE_CONNECTION_KEY');
 const SUPABASE_PROJECT_REF = Deno.env.get('SUPABASE_PROJECT_REF');
 
+console.log('Environment check:', {
+  PICA_SECRET_KEY: PICA_SECRET_KEY ? 'Set' : 'Missing',
+  PICA_SUPABASE_CONNECTION_KEY: PICA_SUPABASE_CONNECTION_KEY ? 'Set' : 'Missing',
+  SUPABASE_PROJECT_REF: SUPABASE_PROJECT_REF ? 'Set' : 'Missing'
+});
+
 if (!PICA_SECRET_KEY || !PICA_SUPABASE_CONNECTION_KEY || !SUPABASE_PROJECT_REF) {
+  console.error('Missing environment variables:', {
+    PICA_SECRET_KEY: !!PICA_SECRET_KEY,
+    PICA_SUPABASE_CONNECTION_KEY: !!PICA_SUPABASE_CONNECTION_KEY,
+    SUPABASE_PROJECT_REF: !!SUPABASE_PROJECT_REF
+  });
   throw new Error('Missing required environment variables: PICA_SECRET_KEY, PICA_SUPABASE_CONNECTION_KEY, or SUPABASE_PROJECT_REF');
 }
 
 async function searchCandidatesWithPicaOS(searchQuery: string) {
   try {
+    // Escape single quotes to prevent SQL injection
+    const escapedQuery = searchQuery.replace(/'/g, "''");
+    
     // Build comprehensive SQL query that searches across all relevant fields
-    let sqlQuery = `
+    const sqlQuery = `
       SELECT * FROM hr_solns_app 
       WHERE 
-        name ILIKE '%${searchQuery}%' OR 
-        email ILIKE '%${searchQuery}%' OR 
-        phone ILIKE '%${searchQuery}%' OR
-        primary_skills ILIKE '%${searchQuery}%' OR 
-        current_company ILIKE '%${searchQuery}%' OR
-        college_marks ILIKE '%${searchQuery}%' OR
-        CAST(total_experience AS TEXT) ILIKE '%${searchQuery}%' OR
-        CAST(year_passed_out AS TEXT) ILIKE '%${searchQuery}%'
+        name ILIKE '%${escapedQuery}%' OR 
+        email ILIKE '%${escapedQuery}%' OR 
+        phone ILIKE '%${escapedQuery}%' OR
+        primary_skills ILIKE '%${escapedQuery}%' OR 
+        current_company ILIKE '%${escapedQuery}%' OR
+        college_marks ILIKE '%${escapedQuery}%' OR
+        CAST(total_experience AS TEXT) ILIKE '%${escapedQuery}%' OR
+        CAST(year_passed_out AS TEXT) ILIKE '%${escapedQuery}%'
       ORDER BY created_at DESC 
       LIMIT 50;
     `;
+
+    console.log('Executing SQL query:', sqlQuery);
 
     // Make request to PicaOS API
     const response = await fetch(
@@ -52,11 +68,16 @@ async function searchCandidatesWithPicaOS(searchQuery: string) {
       }
     );
 
+    console.log('PicaOS API response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`PicaOS API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('PicaOS API error response:', errorText);
+      throw new Error(`PicaOS API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('PicaOS API response data:', data);
     return data;
   } catch (error) {
     console.error('Error searching candidates with PicaOS:', error);
@@ -65,8 +86,11 @@ async function searchCandidatesWithPicaOS(searchQuery: string) {
 }
 
 Deno.serve(async (req: Request) => {
+  console.log('Received request:', req.method, req.url);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log('Handling CORS preflight request');
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
@@ -75,6 +99,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (req.method !== 'POST') {
+      console.log('Method not allowed:', req.method);
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         {
@@ -87,9 +112,33 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { query }: SearchRequest = await req.json();
+    const requestBody = await req.text();
+    console.log('Request body:', requestBody);
+
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(requestBody);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON', 
+          message: 'Request body must be valid JSON' 
+        }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    const { query }: SearchRequest = parsedBody;
 
     if (!query || typeof query !== 'string') {
+      console.log('Invalid query parameter:', query);
       return new Response(
         JSON.stringify({ 
           error: 'Invalid request', 
@@ -105,8 +154,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('Searching for:', query);
+
     // Search candidates using PicaOS
     const searchResults = await searchCandidatesWithPicaOS(query);
+
+    console.log('Search completed, returning results');
 
     return new Response(
       JSON.stringify({
